@@ -1,0 +1,13 @@
+{
+  "name": "royal-friends-casino-v2",
+  "version": "2.0.0",
+  "description": "Kasyno ze znajomymi v2 - Owalne stoly, Konta, Rebuy 12h, PvP Poker",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}
