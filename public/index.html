@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Royal Friends Casino - Serwer Multiplayer</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+<header>
+    <div class="logo">🎰 ROYAL FRIENDS CASINO <span class="badge-live">ONLINE SERVER</span></div>
+    <div class="wallet-box">
+        <input type="text" id="nick-input" placeholder="Twój nick..." maxlength="16" style="width:130px;">
+        <button onclick="changeNick()" class="btn-secondary">Zmień Nick</button>
+        <div>Portfel: <span class="balance" id="ui-balance">5000</span> 🪙</div>
+        <button class="btn-secondary" onclick="rebuy()">+ Rebuy (1000 🪙)</button>
+    </div>
+</header>
+<div class="main-container">
+    <div>
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('poker', this)">♠️ Texas Hold'em (Wspólny Stół)</button>
+            <button class="tab-btn" onclick="switchTab('blackjack', this)">🃏 Blackjack (21)</button>
+            <button class="tab-btn" onclick="switchTab('roulette', this)">🎡 Ruletka Europejska</button>
+            <button class="tab-btn" onclick="switchTab('slots', this)">🍒 Automaty (Slots)</button>
+        </div>
+
+        <div id="game-poker" class="game-panel active">
+            <div>
+                <div class="game-title">Wspólny Stół Texas Hold'em (Multiplayer PvP + Krupier)</div>
+                <div class="rng-badge">🔒 Karty własne szyfrowane na serwerze • Wspólna pula dla graczy przy stole</div>
+            </div>
+            <div>
+                <div style="text-align:center; color:var(--gold); margin-bottom:6px;">Pula Stołu (Pot): <strong id="pk-pot" style="font-size:1.3rem;">0</strong> 🪙</div>
+                <div class="cards-area" id="pk-community"></div>
+                <div class="status-msg" id="pk-status">Usiądź do stołu ze znajomymi lub zagraj na Krupiera!</div>
+                <div id="pk-seats-list" class="seats-container"></div>
+                <div style="text-align:center; font-size:0.9rem; color:#cbd5e1; margin-top:10px;">Twoje Prywatne Karty</div>
+                <div class="cards-area" id="pk-my-cards"></div>
+            </div>
+            <div class="controls-bar">
+                <label>Wejście / Podbicie:</label>
+                <input type="number" id="pk-bet" value="100" min="10" step="10" style="width:85px;">
+                <button onclick="pkJoin()" id="pk-btn-join">1. Dołącz do Rozdania</button>
+                <button onclick="pkStart()" id="pk-btn-start" class="btn-success">2. Rozdaj Karty</button>
+                <button onclick="pkNext()" id="pk-btn-next" disabled class="btn-secondary">Odkryj Karty / Sprawdź</button>
+                <button onclick="pkRaise()" id="pk-btn-raise" disabled>Podbij Pulę</button>
+                <button onclick="pkFold()" id="pk-btn-fold" disabled class="btn-danger">Pasuj (Fold)</button>
+            </div>
+        </div>
+
+        <div id="game-blackjack" class="game-panel">
+            <div>
+                <div class="game-title">Blackjack (Krupier staje na 17)</div>
+                <div class="rng-badge">🔒 Talia 52 kart tasowana na serwerze (Node.js CSPRNG)</div>
+            </div>
+            <div>
+                <div style="text-align:center;">Krupier (<span id="bj-d-score">0</span>)</div>
+                <div class="cards-area" id="bj-d-cards"></div>
+                <div class="status-msg" id="bj-status">Postaw zakład i kliknij Rozdaj!</div>
+                <div style="text-align:center;">Twoja Ręka (<span id="bj-p-score">0</span>)</div>
+                <div class="cards-area" id="bj-p-cards"></div>
+            </div>
+            <div class="controls-bar">
+                <label>Stawka:</label>
+                <input type="number" id="bj-bet" value="100" min="10" step="10" style="width:90px;">
+                <button id="bj-deal" onclick="bjDeal()">Rozdaj</button>
+                <button id="bj-hit" onclick="bjHit()" disabled class="btn-success">Dobierz (Hit)</button>
+                <button id="bj-stand" onclick="bjStand()" disabled class="btn-danger">Pas (Stand)</button>
+                <button id="bj-double" onclick="bjDouble()" disabled class="btn-secondary">Podwój (2x)</button>
+            </div>
+        </div>
+
+        <div id="game-roulette" class="game-panel">
+            <div>
+                <div class="game-title">Ruletka Europejska (0 - 36)</div>
+                <div class="rng-badge">🔒 Wynik losowany na serwerze i ogłaszany na czacie kasyna</div>
+            </div>
+            <div>
+                <div class="roulette-wheel-display" id="rl-wheel">?</div>
+                <div class="status-msg" id="rl-status">Wybierz zakład i zakręć kołem!</div>
+                <div class="roulette-grid">
+                    <div class="bet-option bg-red selected" onclick="selRl('red', this)">CZERWONE (2x)</div>
+                    <div class="bet-option bg-black" onclick="selRl('black', this)">CZARNE (2x)</div>
+                    <div class="bet-option bg-green" onclick="selRl('zero', this)">ZIELONE 0 (36x)</div>
+                    <div class="bet-option bg-neutral" onclick="selRl('even', this)">PARZYSTE (2x)</div>
+                    <div class="bet-option bg-neutral" onclick="selRl('odd', this)">NIEPARZYSTE (2x)</div>
+                    <div class="bet-option bg-neutral" onclick="selRl('low', this)">1 - 18 (2x)</div>
+                    <div class="bet-option bg-neutral" onclick="selRl('high', this)">19 - 36 (2x)</div>
+                    <div class="bet-option bg-neutral" onclick="selRl('number', this)">NUMER (36x): <input type="number" id="rl-num" min="0" max="36" value="7" style="width:55px;" onclick="event.stopPropagation()"></div>
+                </div>
+            </div>
+            <div class="controls-bar">
+                <label>Stawka:</label>
+                <input type="number" id="rl-bet" value="100" min="10" step="10" style="width:90px;">
+                <button onclick="rlSpin()">🎡 Zakręć Kołem!</button>
+            </div>
+        </div>
+
+        <div id="game-slots" class="game-panel">
+            <div>
+                <div class="game-title">Neon Cyber Slots 777</div>
+                <div class="rng-badge">🔒 Losowanie bębnów po stronie serwera</div>
+            </div>
+            <div>
+                <div class="slot-machine">
+                    <div class="reel" id="sl-1">7️⃣</div>
+                    <div class="reel" id="sl-2">💎</div>
+                    <div class="reel" id="sl-3">7️⃣</div>
+                </div>
+                <div class="status-msg" id="sl-status">Zakręć bębnami!</div>
+            </div>
+            <div class="controls-bar">
+                <label>Stawka:</label>
+                <input type="number" id="sl-bet" value="50" min="10" step="10" style="width:90px;">
+                <button onclick="slSpin()">🎰 ZAKRĘĆ (SPIN)</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="box-section">
+            <div class="box-title">🏆 Gracze Online w Kasynie</div>
+            <ul class="player-list" id="leaderboard"></ul>
+        </div>
+        <div class="box-section" style="flex:1; display:flex; flex-direction:column;">
+            <div class="box-title">💬 Czat i Wygrane Na Żywo</div>
+            <div class="chat-log" id="chat-log"></div>
+            <div style="display:flex; gap:6px; margin-top:8px;">
+                <input type="text" id="chat-in" placeholder="Napisz wiadomość..." style="flex:1;" onkeypress="if(event.key==='Enter') sendChat()">
+                <button onclick="sendChat()">Wyślij</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="client.js"></script>
+</body>
+</html>
